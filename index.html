@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EXTRAPLAST · Programação de Cargas</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--ink:#17202a;--muted:#6b7280;--line:#dfe3e8;--brand:#123a63;--brand2:#1f5d96;--ok:#15803d;--warn:#b45309;--danger:#b91c1c}
+*{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--brand);color:#fff;padding:16px 22px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:20px;margin:0} header small{opacity:.8}
+.shell{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 64px)}
+nav{background:#0f2e4d;padding:18px 10px}.navbtn{width:100%;border:0;background:transparent;color:#dbeafe;text-align:left;padding:13px 14px;border-radius:8px;margin:3px 0;cursor:pointer;font-weight:700}.navbtn:hover,.navbtn.active{background:var(--brand2);color:#fff}
+main{padding:22px;overflow:auto}.view{display:none}.view.active{display:block}
+h2{margin:0 0 16px}.grid{display:grid;gap:14px}.cards{grid-template-columns:repeat(4,minmax(160px,1fr))}
+.card,.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:0 1px 2px #0000000b}
+.metric{font-size:27px;font-weight:800;margin-top:7px}.muted{color:var(--muted);font-size:13px}
+.formgrid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:12px}
+label{display:block;font-size:12px;font-weight:700;color:#475569;margin-bottom:5px}
+input,select,textarea{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:7px;background:#fff} textarea{min-height:74px;resize:vertical}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+button{border:0;border-radius:7px;padding:10px 13px;font-weight:700;cursor:pointer}.primary{background:var(--brand2);color:#fff}.secondary{background:#e2e8f0}.danger{background:#fee2e2;color:var(--danger)}
+table{width:100%;border-collapse:collapse;background:#fff}th,td{padding:9px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:13px}th{background:#eef2f6;position:sticky;top:0;z-index:1}.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:9px}
+.badge{display:inline-block;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;background:#e2e8f0}
+.badge.ok{background:#dcfce7;color:#166534}.badge.warn{background:#ffedd5;color:#9a3412}
+.right{text-align:right}.toast{position:fixed;right:18px;bottom:18px;background:#111827;color:#fff;padding:12px 16px;border-radius:8px;display:none;z-index:99}
+.item-row input,.item-row select{min-width:100px}.item-row .desc{min-width:290px}
+@media(max-width:1000px){.shell{grid-template-columns:1fr}nav{display:flex;overflow:auto;padding:8px}.navbtn{min-width:max-content}.cards,.formgrid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){main{padding:12px}.cards,.formgrid{grid-template-columns:1fr}header small{display:none}}
+@media print{nav,.no-print,header{display:none!important}.shell{display:block}main{padding:0}.view{display:none!important}#programacao{display:block!important}.panel{box-shadow:none;border:0}}
+</style>
+</head>
+<body>
+<header><div><h1>EXTRAPLAST</h1><small>Programação de Cargas · V1</small></div><small id="conn">Conectando...</small></header>
+<div class="shell">
+<nav class="no-print">
+<button class="navbtn active" data-view="dashboard">▦ Dashboard</button>
+<button class="navbtn" data-view="programacao">▣ Programação de Cargas</button>
+<button class="navbtn" data-view="cadastro">＋ Cadastro de Itens</button>
+<button class="navbtn" data-view="historico">☰ Histórico</button>
+</nav>
+<main>
+<section id="dashboard" class="view active">
+<h2>Dashboard</h2>
+<div class="grid cards">
+<div class="card"><div class="muted">Cargas programadas</div><div class="metric" id="mCargas">0</div></div>
+<div class="card"><div class="muted">Pallets programados</div><div class="metric" id="mPallets">0</div></div>
+<div class="card"><div class="muted">Unidades programadas</div><div class="metric" id="mQtd">0</div></div>
+<div class="card"><div class="muted">Peso total</div><div class="metric" id="mPeso">0 kg</div></div>
+</div>
+<div class="panel" style="margin-top:14px"><h3>Últimas cargas</h3><div class="tablewrap"><table><thead><tr><th>Romaneio</th><th>Data</th><th>Destinatário</th><th>Destino</th><th>Status</th></tr></thead><tbody id="dashCargas"></tbody></table></div></div>
+</section>
+
+<section id="programacao" class="view">
+<h2>Programação de Cargas</h2>
+<div class="panel">
+<input type="hidden" id="cargaId">
+<div class="formgrid">
+<div><label>Nº Romaneio</label><input id="romaneio" placeholder="ROM-2026-0001"></div>
+<div><label>Data Expedição</label><input id="dataExp" type="date"></div>
+<div><label>NF-e</label><input id="nfe"></div>
+<div><label>Status da Carga</label><select id="statusCarga"><option>PROGRAMADA</option><option>EM CONFERÊNCIA</option><option>PRONTA</option><option>CARREGADA</option><option>EXPEDIDA</option></select></div>
+<div><label>Transportadora</label><input id="transportadora"></div>
+<div><label>Placa</label><input id="placa"></div>
+<div><label>UF</label><input id="uf" maxlength="2"></div>
+<div><label>Tipo de Veículo</label><input id="tipoVeiculo" placeholder="Carreta"></div>
+<div style="grid-column:span 2"><label>Destinatário</label><input id="destinatario"></div>
+<div style="grid-column:span 2"><label>Cidade / Destino</label><input id="cidadeDestino"></div>
+</div>
+<div class="actions no-print"><button class="primary" onclick="novaCarga()">Nova Carga</button><button class="primary" onclick="salvarCarga()">Salvar Carga</button><button class="secondary" onclick="adicionarLinha()">+ Adicionar Pallet</button><button class="secondary" onclick="window.print()">Imprimir</button></div>
+<div class="grid cards" style="margin:12px 0">
+<div class="card"><div class="muted">Total de pallets</div><div class="metric" id="tPallets">0</div></div>
+<div class="card"><div class="muted">Quantidade total</div><div class="metric" id="tQtd">0</div></div>
+<div class="card"><div class="muted">Peso bruto total</div><div class="metric" id="tPeso">0 kg</div></div>
+<div class="card"><div class="muted">Metragem linear</div><div class="metric" id="tMetros">0 m</div></div>
+</div>
+<div class="tablewrap"><table><thead><tr><th>Pallet</th><th>Código</th><th>Descrição</th><th>Qtd.</th><th>Status</th><th>Peso Unit.</th><th>Peso Total</th><th>Observação/Pedido</th><th>Metragem</th><th class="no-print"></th></tr></thead><tbody id="linhasCarga"></tbody></table></div>
+<div style="margin-top:12px"><label>Observações gerais</label><textarea id="obsCarga"></textarea></div>
+</div>
+</section>
+
+<section id="cadastro" class="view">
+<h2>Cadastro de Itens</h2>
+<div class="panel">
+<input type="hidden" id="itemId">
+<div class="formgrid">
+<div><label>Código</label><input id="codigo"></div>
+<div style="grid-column:span 2"><label>Descrição</label><input id="descricao"></div>
+<div><label>Qtd. padrão / pallet</label><input id="qtdPadrao" type="number" step="0.01"></div>
+<div><label>Peso unitário (kg)</label><input id="pesoUnit" type="number" step="0.001"></div>
+<div><label>Dimensão pallet (m)</label><input id="dimPallet" type="number" step="0.01"></div>
+<div><label>Ativo</label><select id="ativo"><option value="true">Sim</option><option value="false">Não</option></select></div>
+</div>
+<div class="actions"><button class="primary" onclick="salvarItem()">Salvar Item</button><button class="secondary" onclick="limparItem()">Novo</button></div>
+<div class="tablewrap"><table><thead><tr><th>Código</th><th>Descrição</th><th>Qtd./Pallet</th><th>Peso</th><th>Dimensão</th><th>Ativo</th><th></th></tr></thead><tbody id="listaItens"></tbody></table></div>
+</div>
+</section>
+
+<section id="historico" class="view">
+<h2>Histórico de Cargas</h2>
+<div class="panel">
+<div class="formgrid"><div style="grid-column:span 2"><label>Pesquisar</label><input id="buscaCarga" placeholder="Romaneio, destinatário ou destino" oninput="renderHistorico()"></div></div>
+<div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Romaneio</th><th>Data</th><th>NF-e</th><th>Destinatário</th><th>Destino</th><th>Status</th><th></th></tr></thead><tbody id="listaCargas"></tbody></table></div>
+</div>
+</section>
+</main></div>
+<div id="toast" class="toast"></div>
+<script>
+const SUPABASE_URL="https://wkfeikbybhcuvsexxrjx.supabase.co";
+const SUPABASE_KEY="sb_publishable_xy0w23lFJIywjFw0a9Msvg_w17LcZoI";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let itens=[], cargas=[];
+
+const $=id=>document.getElementById(id);
+const n=v=>Number(v)||0;
+const fmt=v=>n(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+function toast(msg){const t=$('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2600)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>showView(b.dataset.view));
+function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));$(id).classList.add('active');document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===id));if(id==='dashboard') carregarDashboard();if(id==='historico') carregarCargas()}
+
+async function init(){
+ try{await carregarItens();await carregarCargas();await carregarDashboard();$('conn').textContent='Banco conectado';novaCarga(false)}
+ catch(e){$('conn').textContent='Erro de conexão';toast(e.message)}
+}
+async function carregarItens(){
+ const {data,error}=await sb.from('itens_carga').select('*').order('codigo');
+ if(error) throw error; itens=data||[]; renderItens();
+}
+function renderItens(){
+ $('listaItens').innerHTML=itens.map(i=>`<tr><td>${esc(i.codigo)}</td><td>${esc(i.descricao)}</td><td>${fmt(i.qtd_padrao_pallet)}</td><td>${fmt(i.peso_unitario)} kg</td><td>${fmt(i.dimensao_pallet)} m</td><td>${i.ativo?'Sim':'Não'}</td><td><button class="secondary" onclick="editarItem(${i.id})">Editar</button></td></tr>`).join('');
+}
+function limparItem(){['itemId','codigo','descricao','qtdPadrao','pesoUnit','dimPallet'].forEach(x=>$(x).value='');$('ativo').value='true'}
+function editarItem(id){const i=itens.find(x=>x.id===id);if(!i)return;$('itemId').value=i.id;$('codigo').value=i.codigo;$('descricao').value=i.descricao;$('qtdPadrao').value=i.qtd_padrao_pallet;$('pesoUnit').value=i.peso_unitario;$('dimPallet').value=i.dimensao_pallet;$('ativo').value=String(i.ativo);window.scrollTo({top:0,behavior:'smooth'})}
+async function salvarItem(){
+ const obj={codigo:$('codigo').value.trim(),descricao:$('descricao').value.trim(),qtd_padrao_pallet:n($('qtdPadrao').value),peso_unitario:n($('pesoUnit').value),dimensao_pallet:n($('dimPallet').value),ativo:$('ativo').value==='true'};
+ if(!obj.codigo||!obj.descricao)return toast('Informe código e descrição.');
+ const id=$('itemId').value; const q=id?sb.from('itens_carga').update(obj).eq('id',id):sb.from('itens_carga').insert(obj);
+ const {error}=await q;if(error)return toast(error.message);toast('Item salvo.');limparItem();await carregarItens()
+}
+
+function itemOptions(sel=''){return '<option value="">Selecione...</option>'+itens.filter(i=>i.ativo).map(i=>`<option value="${i.id}" ${String(i.id)===String(sel)?'selected':''}>${esc(i.codigo)}</option>`).join('')}
+function adicionarLinha(d={}){
+ const tr=document.createElement('tr');tr.className='item-row';tr.dataset.dbid=d.id||'';
+ tr.innerHTML=`<td><input class="pallet" value="${esc(d.numero_pallet||proximoPallet())}"></td>
+ <td><select class="item">${itemOptions(d.item_id||'')}</select></td><td><input class="desc" readonly></td>
+ <td><input class="qtd" type="number" step="0.01" value="${d.quantidade??''}"></td>
+ <td><select class="st"><option>EMBALAR</option><option>PRONTO</option><option>CONFERIDO</option><option>CARREGADO</option></select></td>
+ <td><input class="pu" readonly></td><td><input class="pt" readonly></td><td><input class="obs" value="${esc(d.observacao||'')}"></td><td><input class="ml" readonly></td>
+ <td class="no-print"><button class="danger" onclick="removerLinha(this)">×</button></td>`;
+ $('linhasCarga').appendChild(tr);tr.querySelector('.st').value=d.status||'EMBALAR';
+ tr.querySelector('.item').onchange=()=>preencherLinha(tr,true);tr.querySelector('.qtd').oninput=()=>preencherLinha(tr,false);
+ preencherLinha(tr,false)
+}
+function proximoPallet(){return 'PL-'+String(document.querySelectorAll('.item-row').length+1).padStart(2,'0')}
+function preencherLinha(tr,usarPadrao){
+ const i=itens.find(x=>String(x.id)===tr.querySelector('.item').value);
+ tr.querySelector('.desc').value=i?.descricao||'';tr.querySelector('.pu').value=i?fmt(i.peso_unitario):'';
+ if(usarPadrao&&i&&n(i.qtd_padrao_pallet)>0&&!tr.querySelector('.qtd').value)tr.querySelector('.qtd').value=i.qtd_padrao_pallet;
+ const qtd=n(tr.querySelector('.qtd').value),peso=n(i?.peso_unitario),dim=n(i?.dimensao_pallet);
+ tr.querySelector('.pt').value=fmt(qtd*peso);tr.querySelector('.ml').value=fmt(dim/2);totais()
+}
+function removerLinha(btn){btn.closest('tr').remove();totais()}
+function totais(){
+ const rows=[...document.querySelectorAll('.item-row')];let q=0,p=0,m=0;
+ rows.forEach(r=>{q+=n(r.querySelector('.qtd').value);p+=n((r.querySelector('.pt').value||'').replace(/\./g,'').replace(',','.'));m+=n((r.querySelector('.ml').value||'').replace(/\./g,'').replace(',','.'))});
+ $('tPallets').textContent=rows.length;$('tQtd').textContent=fmt(q);$('tPeso').textContent=fmt(p)+' kg';$('tMetros').textContent=fmt(m)+' m'
+}
+function novaCarga(msg=true){
+ $('cargaId').value='';['romaneio','nfe','transportadora','placa','uf','tipoVeiculo','destinatario','cidadeDestino','obsCarga'].forEach(x=>$(x).value='');
+ $('dataExp').value=new Date().toISOString().slice(0,10);$('statusCarga').value='PROGRAMADA';$('linhasCarga').innerHTML='';adicionarLinha();if(msg)toast('Nova carga iniciada.')
+}
+async function salvarCarga(){
+ const head={romaneio:$('romaneio').value.trim(),data_expedicao:$('dataExp').value||null,nfe:$('nfe').value.trim(),transportadora:$('transportadora').value.trim(),placa:$('placa').value.trim(),uf:$('uf').value.trim().toUpperCase(),tipo_veiculo:$('tipoVeiculo').value.trim(),destinatario:$('destinatario').value.trim(),cidade_destino:$('cidadeDestino').value.trim(),status:$('statusCarga').value,observacoes:$('obsCarga').value.trim()};
+ if(!head.romaneio)return toast('Informe o número do romaneio.');
+ let id=$('cargaId').value;
+ if(id){const {error}=await sb.from('cargas').update(head).eq('id',id);if(error)return toast(error.message);await sb.from('carga_itens').delete().eq('carga_id',id)}
+ else{const {data,error}=await sb.from('cargas').insert(head).select().single();if(error)return toast(error.message);id=data.id;$('cargaId').value=id}
+ const rows=[...document.querySelectorAll('.item-row')].map(r=>({carga_id:Number(id),numero_pallet:r.querySelector('.pallet').value.trim(),item_id:Number(r.querySelector('.item').value)||null,quantidade:n(r.querySelector('.qtd').value),status:r.querySelector('.st').value,observacao:r.querySelector('.obs').value.trim()})).filter(x=>x.item_id);
+ if(rows.length){const {error}=await sb.from('carga_itens').insert(rows);if(error)return toast(error.message)}
+ toast('Carga salva com sucesso.');await carregarCargas();await carregarDashboard()
+}
+async function carregarCargas(){
+ const {data,error}=await sb.from('cargas').select('*').order('data_expedicao',{ascending:false}).order('id',{ascending:false});if(error)throw error;cargas=data||[];renderHistorico()
+}
+function renderHistorico(){
+ const s=($('buscaCarga')?.value||'').toLowerCase();const arr=cargas.filter(c=>[c.romaneio,c.destinatario,c.cidade_destino].join(' ').toLowerCase().includes(s));
+ $('listaCargas').innerHTML=arr.map(c=>`<tr><td>${esc(c.romaneio)}</td><td>${esc(c.data_expedicao||'')}</td><td>${esc(c.nfe||'')}</td><td>${esc(c.destinatario||'')}</td><td>${esc(c.cidade_destino||'')}</td><td><span class="badge ${c.status==='EXPEDIDA'?'ok':'warn'}">${esc(c.status)}</span></td><td><button class="secondary" onclick="abrirCarga(${c.id})">Abrir</button> <button class="danger" onclick="excluirCarga(${c.id})">Excluir</button></td></tr>`).join('')
+}
+async function abrirCarga(id){
+ const c=cargas.find(x=>x.id===id);if(!c)return;$('cargaId').value=c.id;$('romaneio').value=c.romaneio||'';$('dataExp').value=c.data_expedicao||'';$('nfe').value=c.nfe||'';$('transportadora').value=c.transportadora||'';$('placa').value=c.placa||'';$('uf').value=c.uf||'';$('tipoVeiculo').value=c.tipo_veiculo||'';$('destinatario').value=c.destinatario||'';$('cidadeDestino').value=c.cidade_destino||'';$('statusCarga').value=c.status||'PROGRAMADA';$('obsCarga').value=c.observacoes||'';
+ const {data,error}=await sb.from('carga_itens').select('*').eq('carga_id',id).order('id');if(error)return toast(error.message);$('linhasCarga').innerHTML='';(data||[]).forEach(adicionarLinha);if(!data?.length)adicionarLinha();showView('programacao')
+}
+async function excluirCarga(id){if(!confirm('Excluir esta carga e todos os seus itens?'))return;const {error}=await sb.from('cargas').delete().eq('id',id);if(error)return toast(error.message);toast('Carga excluída.');await carregarCargas();await carregarDashboard()}
+async function carregarDashboard(){
+ await carregarCargas();const {data,error}=await sb.from('carga_itens').select('numero_pallet,quantidade,item_id');if(error)return;
+ const rows=data||[];$('mCargas').textContent=cargas.length;$('mPallets').textContent=rows.length;$('mQtd').textContent=fmt(rows.reduce((a,x)=>a+n(x.quantidade),0));
+ const mp=new Map(itens.map(i=>[i.id,n(i.peso_unitario)]));$('mPeso').textContent=fmt(rows.reduce((a,x)=>a+n(x.quantidade)*n(mp.get(x.item_id)),0))+' kg';
+ $('dashCargas').innerHTML=cargas.slice(0,8).map(c=>`<tr><td>${esc(c.romaneio)}</td><td>${esc(c.data_expedicao||'')}</td><td>${esc(c.destinatario||'')}</td><td>${esc(c.cidade_destino||'')}</td><td>${esc(c.status||'')}</td></tr>`).join('')
+}
+init();
+</script>
+</body></html>
